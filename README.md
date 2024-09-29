@@ -36,3 +36,4 @@ To get started with this project:
 The project's **NiFi flow diagram** is available in the following file:
 
 ![NiFi Flow Diagram](nifi-case.png)
+![Database](DeepinScreenshot_select-area_20240927152443.png)
