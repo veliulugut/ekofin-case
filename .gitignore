@@ -1,0 +1,5 @@
+cert/
+*.nifi-cert.pem
+*.nifi-key.pem
+*.nifi.properties
+*.nifi.properties.xml
