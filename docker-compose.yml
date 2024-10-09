@@ -1,27 +1,61 @@
 version: '3.8'
 services:
   zookeeper:
-    image: confluentinc/cp-zookeeper:7.2.1
+    image: confluentinc/cp-zookeeper:latest
+    ports:
+      - "2181:2181"
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
-    ports:
-      - "2181:2181"
+      ZOOKEEPER_INIT_LIMIT: 5
+      ZOOKEEPER_SYNC_LIMIT: 2
 
   kafka:
-    image: confluentinc/cp-kafka:7.2.1
-    depends_on:
-      - zookeeper
-    environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    image: wurstmeister/kafka:latest
     ports:
       - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_LISTENERS: "INTERNAL://kafka:29092,EXTERNAL://localhost:9092"
+      KAFKA_ADVERTISED_LISTENERS: "INTERNAL://kafka:29092,EXTERNAL://localhost:9092"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "INTERNAL"
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_ZOOKEEPER_SESSION_TIMEOUT: "6000"
+      KAFKA_RESTART_ATTEMPTS: "10"
+      KAFKA_RESTART_DELAY: "5"
+    depends_on:
+      - zookeeper
+
+  nifi:
+    image: apache/nifi:latest
+    container_name: nifi
+    build: .
+    ports:
+      - "8443:8443"
+    volumes:
+      - /home/veli/Desktop/ekofin-case/certs:/opt/nifi/certs 
+    environment:
+      - NIFI_WEB_HTTP_PORT=
+      - NIFI_WEB_HTTPS_PORT=8443
+      - NIFI_SECURITY_KEYSTORE=/opt/nifi/certs/nifi-keystore.p12
+      - NIFI_SECURITY_KEYSTORE_TYPE=PKCS12
+      - NIFI_SECURITY_KEYSTORE_PASSWORD=123turkTR562
+      - NIFI_SECURITY_TRUSTSTORE=/opt/nifi/certs/nifi-truststore.jks
+      - NIFI_SECURITY_TRUSTSTORE_TYPE=JKS
+      - NIFI_SECURITY_TRUSTSTORE_PASSWORD=123turkTR562
+      - NIFI_SECURITY_USER_AUTHORIZER=managed-authorizer
+      - NIFI_SECURITY_ALLOW_ANONYMOUS_LOGIN=false  
+    command: >
+      sh -c "
+        exec /opt/nifi/nifi-current/bin/nifi.sh start &&
+        sleep 30 &&
+        curl -i -X POST -F 'template=@/opt/nifi/nifi-current/conf/templates/ekofin-case-son.xml' 
+        http://localhost:8443/nifi-api/process-groups/root/templates/upload
+      "
 
   postgres:
-    image: postgres:14
+    image: postgres:latest
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -32,22 +66,12 @@ services:
       - postgres-data:/var/lib/postgresql/data
       - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
 
-  nifi:
-    build: .
+  kafdrop:
+    image: obsidiandynamics/kafdrop:3.27.0
     ports:
-      - "8080:8080"
+      - "9000:9000"
     environment:
-      NIFI_WEB_HTTP_PORT: 8080
-    depends_on:
-      - kafka
-      - postgres
-    command: >
-      sh -c "
-        exec /opt/nifi/nifi-current/bin/nifi.sh start &&
-        sleep 30 &&
-        curl -i -X POST -F 'template=@/opt/nifi/nifi-current/conf/templates/ekofin-case-son.xml' 
-        http://localhost:8080/nifi-api/process-groups/root/templates/upload
-      "
+      KAFKA_BROKERCONNECT: kafka:29092
 
 volumes:
   postgres-data:
