@@ -50,7 +50,7 @@ services:
       sh -c "
         exec /opt/nifi/nifi-current/bin/nifi.sh start &&
         sleep 30 &&
-        curl -i -X POST -F 'template=@/opt/nifi/nifi-current/conf/templates/ekofin-case-son.xml' 
+        curl -i -X POST -F 'template=@/opt/nifi/nifi-current/conf/templates/ekofin-case-son2.xml' 
         http://localhost:8443/nifi-api/process-groups/root/templates/upload
       "
 
